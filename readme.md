@@ -241,7 +241,7 @@ spec:
 - minimal resources allocated to pod ? 
 
 ### Resources limits
-- By default : `cpu: 1`, `memory: 512Mi
+- By default : `cpu: 1`, `memory: 512Mi`
 
 CPU is throtled if there is a pod going beoyond its limitation
 
