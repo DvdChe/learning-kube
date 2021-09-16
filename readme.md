@@ -1,47 +1,48 @@
-- [Basics:](#basics-)
-  * [Kube components:](#kube-components-)
-    + [On master node :](#on-master-node--)
-    + [On worker node:](#on-worker-node-)
-  * [Namespaces:](#namespaces-)
-- [Scheduler :](#scheduler--)
-  * [Taints:](#taints-)
-  * [NodeSelector:](#nodeselector-)
-    + [How to label a node:](#how-to-label-a-node-)
-    + [Limitations:](#limitations-)
-  * [Node Affinity:](#node-affinity-)
-  * [Affinity types:](#affinity-types-)
-    + [During scheduling :](#during-scheduling--)
-  * [During Execution:](#during-execution-)
+
+- [Basics](#basics)
+  * [Kube components](#kube-components)
+    + [On master node](#on-master-node)
+    + [On worker node](#on-worker-node)
+  * [Namespaces](#namespaces)
+- [Scheduler](#scheduler)
+  * [Taints](#taints)
+  * [NodeSelector](#nodeselector)
+    + [How to label a node](#how-to-label-a-node)
+    + [Limitations](#limitations)
+  * [Node Affinity](#node-affinity)
+  * [Affinity types](#affinity-types)
+    + [During scheduling](#during-scheduling)
+  * [During Execution](#during-execution)
   * [Resources limits](#resources-limits)
-    + [cpu unit:](#cpu-unit-)
-    + [Memory unit:](#memory-unit-)
-    + [Resources `requests`:](#resources--requests--)
-    + [Resources `limits`:](#resources--limits--)
+    + [cpu unit](#cpu-unit)
+    + [Memory unit](#memory-unit)
+    + [Resources requests](#resources-requests)
+    + [Resources limits](#resources-limits-1)
   * [Daemon sets](#daemon-sets)
   * [Static pods](#static-pods)
   * [Running multiple schedulers](#running-multiple-schedulers)
-  * [# Logging and monitoring](#--logging-and-monitoring)
+  * [Logging and monitoring](#logging-and-monitoring)
   * [Monitoring](#monitoring)
   * [Logging](#logging)
 - [Application lifecycle management](#application-lifecycle-management)
   * [Rolling updates, and rollback](#rolling-updates--and-rollback)
     + [Strategies](#strategies)
-    + [Rollback:](#rollback-)
+    + [Rollback](#rollback)
   * [Application configuration](#application-configuration)
     + [Docker commands](#docker-commands)
     + [Commands and arguments in k8s](#commands-and-arguments-in-k8s)
     + [Env vars in k8s](#env-vars-in-k8s)
     + [Configmaps](#configmaps)
   * [Configure secrets in apps](#configure-secrets-in-apps)
-  * [Init containers:](#init-containers-)
+  * [Init containers](#init-containers)
 - [Cluster Maintenance](#cluster-maintenance)
-  * [OS upgrades:](#os-upgrades-)
-    + [Pods eviction :](#pods-eviction--)
-    + [Gracefull way :](#gracefull-way--)
-  * [Kubernetes releases:](#kubernetes-releases-)
-  * [Upgrade process:](#upgrade-process-)
+  * [OS upgrades](#os-upgrades)
+    + [Pods eviction](#pods-eviction)
+    + [Gracefull way](#gracefull-way)
+  * [Kubernetes releases](#kubernetes-releases)
+  * [Upgrade process](#upgrade-process)
     + [Components version compatibility](#components-version-compatibility)
-    + [Hardway :](#hardway--)
+    + [Hardway](#hardway)
     + [Upgrade strategy](#upgrade-strategy)
     + [kubeadm upgrade](#kubeadm-upgrade)
   * [Backup and restore](#backup-and-restore)
@@ -51,23 +52,23 @@
     + [Resources:](#resources-)
 - [Security](#security)
   * [Authentication](#authentication)
-    + [auth mechanism :](#auth-mechanism--)
-  * [Auth with static file (depreciated since 1.19) :](#auth-with-static-file--depreciated-since-119---)
+    + [auth mechanism](#auth-mechanism)
+  * [Auth with static file (depreciated since 1.19)](#auth-with-static-file--depreciated-since-119-)
   * [Auth with certs](#auth-with-certs)
   * [Cert generation](#cert-generation)
-    + [Server-side certificates:](#server-side-certificates-)
+    + [Server-side certificates](#server-side-certificates)
       - [Kube API Server](#kube-api-server)
       - [kubectl nodes ( client cert )](#kubectl-nodes---client-cert--)
   * [Viewing certs](#viewing-certs)
-    + [Inspect cert file :](#inspect-cert-file--)
+    + [Inspect cert file](#inspect-cert-file)
     + [Inspect service log](#inspect-service-log)
   * [Certificates API](#certificates-api)
   * [Kubeconfig](#kubeconfig)
   * [API Groups](#api-groups)
   * [Authorization](#authorization)
     + [Node authorization](#node-authorization)
-    + [ABAC ( Attribute based authorization):](#abac---attribute-based-authorization--)
-    + [RBAC ( Role Based Authorization ):](#rbac---role-based-authorization---)
+    + [ABAC ( Attribute based authorization)](#abac---attribute-based-authorization-)
+    + [RBAC ( Role Based Authorization )](#rbac---role-based-authorization--)
     + [Webhook](#webhook)
     + [More modes : AllwaysAllow,  AllwaysDeny](#more-modes---allwaysallow---allwaysdeny)
   * [RBAC](#rbac)
@@ -77,15 +78,15 @@
   * [Kubernetes security](#kubernetes-security)
   * [Network policies](#network-policies)
   * [Developing network policies](#developing-network-policies)
-    + [Ingress :](#ingress--)
-    + [Egress :](#egress--)
+    + [Ingress](#ingress)
+    + [Egress](#egress)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
-# Basics:
+# Basics
 
-## Kube components:
-### On master node :
+## Kube components
+### On master node
   - etcd : kv database info about cluster 
   - controler-manager : replica controller autoscaling etc ? 
     - node controller 
@@ -101,17 +102,17 @@
       - Select which node runs which pods 
           - e/g : according size of pod
   - kube apiserver : orchestrate all op in server
-### On worker node:
+### On worker node
   - kubelet : Agent used to make connect worker with kube master node
       - not deployed by kubeadm ( look at static pods )
   - kube-proxy : communication between services within cluster
       - creates services by creating iptables rules 
 
-## Namespaces:
+## Namespaces
   - pod from namespace can resolve service in other namespace: 
     `<podname>.<namespace>.svc.<default cluster domain = cluster.local>`
-# Scheduler :
-## Taints:
+# Scheduler
+## Taints
   - Allow to taint a node. 
   - By default pods cannot been launched on a tainted node
   - Pod must have a "taint toleration" to run on a tainted pod
@@ -137,7 +138,7 @@ spec:
     effect: "NoSchedule"
   ```
 
-## NodeSelector:
+## NodeSelector
 Allow to specify on which node a pod have to run : 
 
 ```yaml
@@ -155,15 +156,15 @@ spec:
     size: large
 ```
 
-### How to label a node:
+### How to label a node
 
 `kubectl label node <node-name> <label-key>=<label-value>`
 
-### Limitations: 
+### Limitations
 
 We cannot make complex policies with nodeSelector such `size = Large OR size = medium` for this, there is Node Affinity
 
- ## Node Affinity:
+ ## Node Affinity
 
 ```yaml
 apiVersion: v1
@@ -185,19 +186,19 @@ spec:
               operator: Exists
 ```
 
-## Affinity types:
+## Affinity types
 
 - requiredDuringSchedulingIgnoredDuringExecution
 - preferredDuringSchedulingIgnoredDuringExecution
 - requiredDuringSchedulingRequiredDuringExecution ( Not yet available )
 
-### During scheduling :
+### During scheduling 
 
 - State when a pod doesn't exists and is created for the first time
 - When it's **required**, pod will not run if there is no matching nodes ( stuck on pending state ? )
 - When it's **preferred**, pod will run if there is a matching node, if not still but on any node
 
-## During Execution: 
+## During Execution
 
 - State when a pod is running.
 - If it required and apply on a running pod, pod will be evicted to node if it doesn't match and will run on matching node
@@ -227,19 +228,19 @@ spec:
       memory: "2Gi"
       cpu: 2
 ```
-### cpu unit:
+### cpu unit
 - 1 cpu = 1 vcpu, 1code on gcp and azure, or one hyperthread
 - can be expressed with "mili" like `cpu: 100m`  
 
-### Memory unit: 
+### Memory unit 
 - can be expressed in G,M,K multiple of tens, 1k = 1000 bytes, 1M = 1 000 000 bytes, etc
 - can be exressed in Gi, Mi, Ki multiple of 1024 
 
-### Resources `requests`:
+### Resources requests
 
 - minimal resources allocated to pod ? 
 
-### Resources `limits`:
+### Resources limits
 - By default : `cpu: 1`, `memory: 512Mi
 
 CPU is throtled if there is a pod going beoyond its limitation
@@ -307,7 +308,7 @@ spec:
 
 - to see which scheduler is used in the current namespace for lasts pods creation: `kubectl get events`
 
-## # Logging and monitoring
+## Logging and monitoring
 
 ## Monitoring
 
@@ -341,7 +342,7 @@ In a deployment there is `StrategyType` key to set if it's `Recreate` or `Rollin
 
 In `RollingUpdate` strategy, Kubernetes will create another replicaset and adding one new pod version and kill one old pod version, and so on. It can be seen by `kubectl get rs`
 
-### Rollback: 
+### Rollback
 
 `kubectl rollout undo deployment/myapp-deployment`
 
@@ -478,7 +479,7 @@ spec:
               key: DB_Password
 ```
 
-## Init containers: 
+## Init containers
 
 Init container is a ephemeral container created before creation of container of pods :
 
@@ -528,21 +529,21 @@ More : https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
 
 # Cluster Maintenance
 
-## OS upgrades:
+## OS upgrades
 
-### Pods eviction : 
+### Pods eviction
 
 If node come down more than 5m ( `kube-controller-manager --pod-eviction-timeout=5m0s ...` ), pods will be terminated from that node, kubernetes will consider node as dead.
 
 If node come back online after eviction, it is considered as blank node. New pods can be launched.
 
-### Gracefull way :
+### Gracefull way
 
 To gracefully put a node offline, we must drain the node with `kubectl drain <node-name>`. Pods will be stopped and recreated on other node. No pods cannot be schedule on this node. To make pod schedulable again : `kubectl uncordon <node-name>`
 
 We can set a node unschedullable with `kubectl cordon <node-name>` . No pods will be scheduled on this node but pods who are running on node will not be stopped. 
 
-## Kubernetes releases:
+## Kubernetes releases
 
 Versions of k8s are formated as `<major>.<minor>.<patch>.
 
@@ -561,7 +562,7 @@ Here is a link to kubernetes documentation if you want to learn more about this 
 
 
 
-## Upgrade process:
+## Upgrade process
 
 ### Components version compatibility
 
@@ -572,7 +573,7 @@ Here is a link to kubernetes documentation if you want to learn more about this 
 
 It is recommanded to update one minor version at time 
 
-### Hardway : 
+### Hardway 
 
 - Just update manually components, lol
 
@@ -668,7 +669,7 @@ Quicknote : it's important to specify following parameters when making a snapsho
 - users ( not managed nativaly. can be base d on ldap, certs, files....)
 - services: It is possible to create service account : `kubectl create servicesaccount sa1` ( see the dedicated part )
 
-### auth mechanism : 
+### auth mechanism
 
 - managed by apiserver
 - different authentication type:
@@ -677,7 +678,7 @@ Quicknote : it's important to specify following parameters when making a snapsho
   - certificates
   - services ( such ldap, ad)
 
-## Auth with static file (depreciated since 1.19) :
+## Auth with static file (depreciated since 1.19)
 
 - To specify user file, use  `--basic-auth-file=user-details.csv` `kube-apiserver` arg.
 
@@ -745,7 +746,7 @@ curl https://kube-apiserver:6443/api/v1/pods \
 ( We use `kube-config.yaml` file, obviously )
 Every services require `ca.crt` 
 
-### Server-side certificates:
+### Server-side certificates
 
 Same procedure as before. We also need aditionnal for peer certs.
 `cat etcd.yaml` :
@@ -838,7 +839,7 @@ Several key/certs are required :
 
 kubeadm will generate certs automatically 
 
-### Inspect cert file : 
+### Inspect cert file
 
 ```bash
 openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout
@@ -1006,7 +1007,7 @@ Different authorization :
 
 User access to Kube API but also kubelet too to read information about services, endpoint, nodes, pods. Kubelet also report (write) node status, pod status, events. Theses requests are hold by **Node Authorizer**.
 
-### ABAC ( Attribute based authorization):
+### ABAC ( Attribute based authorization)
 
 It's where we associate a user, or group of user with a set of permissions. (e.g. can view, create, delete pods )
 To set authorization:
@@ -1017,7 +1018,7 @@ To set authorization:
 
 Unfortunately, it's difficult to manage. RBAC are better:
 
-### RBAC ( Role Based Authorization ):
+### RBAC ( Role Based Authorization )
 
 Instead of associating user or group to authorization, we associate users to role and role has privileges
 
@@ -1289,7 +1290,7 @@ Solutions that DO NOT support network policies:
 
 ## Developing network policies
 
-### Ingress :
+### Ingress
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -1316,7 +1317,7 @@ spec:
           - protocol: TCP
             port: 3306
 ```
-### Egress : 
+### Egress
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
