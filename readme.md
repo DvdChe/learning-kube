@@ -132,10 +132,10 @@ spec:
   - image: nginx
     name: nginx
   tolerations:
-  	- key: "foo"
-  	  value: "bar"
-  	  operator: "equal"
-  	  effect: "NoSchedule"
+  - key: "foo"
+    value: "bar"
+    operator: "equal"
+    effect: "NoSchedule"
   ```
 
 ## NodeSelector:
@@ -753,8 +753,8 @@ Same procedure as before. We also need aditionnal for peer certs.
 
 ```yaml
 - etcd
-	- --key-file=/path/to/certs/etcdserver.key
-	- --cert-file=/path/to/certs/etcdserver.crt
+    - --key-file=/path/to/certs/etcdserver.key
+    - --cert-file=/path/to/certs/etcdserver.crt
 	#[...]
 	- --peer-cert-file=/path/to/certs/etcdpeer1.crt
 	- --peer-client-cert-auth=true
@@ -927,9 +927,9 @@ clusters:
   - name: my-kube-playground
     cluster:
       certificate-authority: ca.crt
-      # Aleternativally : 
+      # Alternatively : 
       certificate-authority-data:
-      		# Base64 encoded ca.crt
+      # Base64 encoded ca.crt
       server: https://my-kube-playground:6443
       
 contexts:
