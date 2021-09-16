@@ -673,9 +673,9 @@ Same procedure as before. We also need aditionnal for peer certs.
 - etcd
     - --key-file=/path/to/certs/etcdserver.key
     - --cert-file=/path/to/certs/etcdserver.crt
-	#[...]
-	- --peer-cert-file=/path/to/certs/etcdpeer1.crt
-	- --peer-client-cert-auth=true
+    #[...]
+    - --peer-cert-file=/path/to/certs/etcdpeer1.crt
+    - --peer-client-cert-auth=true
     - --peer-key-file=/etc/kubernetes/pki/etcd/peer.key
     - --peer-trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
     - --snapshot-count=10000
