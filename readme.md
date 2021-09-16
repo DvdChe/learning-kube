@@ -188,9 +188,9 @@ spec:
 
 ## Affinity types
 
-- requiredDuringSchedulingIgnoredDuringExecution
-- preferredDuringSchedulingIgnoredDuringExecution
-- requiredDuringSchedulingRequiredDuringExecution ( Not yet available )
+- `requiredDuringSchedulingIgnoredDuringExecution`
+- `preferredDuringSchedulingIgnoredDuringExecution`
+- `requiredDuringSchedulingRequiredDuringExecution` ( Not yet available )
 
 ### During scheduling 
 
