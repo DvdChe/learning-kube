@@ -1,4 +1,3 @@
-
 - [Basics](#basics)
   * [Kube components](#kube-components)
     + [On master node](#on-master-node)
@@ -80,6 +79,16 @@
   * [Developing network policies](#developing-network-policies)
     + [Ingress](#ingress)
     + [Egress](#egress)
+- [Storage](#storage)
+  * [Storage in docker](#storage-in-docker)
+      - [Storage Drivers](#storage-drivers)
+      - [Volume Drivers](#volume-drivers)
+  * [Container Storage Interface](#container-storage-interface)
+  * [Volumes](#volumes)
+  * [Persistent volumes](#persistent-volumes)
+  * [Persistent Volume Claims](#persistent-volume-claims)
+    + [Reclaim Policy](#reclaim-policy)
+  * [Storage Classes](#storage-classes)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
@@ -1345,3 +1354,199 @@ spec:
           - protocol: TCP
             port: 80
 ```
+
+# Storage
+
+## Storage in docker
+
+In docker storage 2 types of drivers :
+
+- volume driver
+- storage driver
+
+#### Storage Drivers
+
+When we run a container, docker create a layer (container layer) on the top of other layers who belonging to the image (images layer). This container layer is read / write. wheras, layer images are read only. If we modify in, a container, a file stored in image layer,  a cpy on write policy is applied to the container layer.  When container is destroyed, this layer is removed
+
+2 types of mounting : volume mounting vs bind mounting
+
+The part responsible of layer management, copy on write, etc is the storage driver. there is several of them: 
+
+- AUFS ( default in ubntu )
+- ZFS
+- BTRFS
+- Device Mapper
+- Overlay
+- Overlay2
+
+#### Volume Drivers
+
+Volumes are handled by volume driver plugins : 
+
+- Local ( default ), store data in /var/lib/docker
+- Azure File Storage
+- Convoy
+- DigitaOcean Block Storage
+- Flocker
+- gce-docker
+- GlusterFS
+- NetApp
+- ...
+
+```
+docker run -ti --name mysql --volume-driver rexray/ebs --mount src....
+```
+
+## Container Storage Interface
+
+CSI is a sort of standard used to tier provider ( dell EMC, portvox, amazon EBS, GlusterFS.... ) to interact with container manager 
+
+## Volumes
+
+Volume can be attached to a pod.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: random-number-generator
+spec:
+  containers:
+    - image: alpine
+      name: alpine
+      command: ["/usr/bin/sh", "-c"]
+      args: ["shuf -i 0-100 -n 1 >> /opt/number.out;"]
+      volumeMounts:
+        - mountPath: /opt
+          name: data-volume
+    
+    volumes:
+      - name: data-volume
+        hostPath: # Don't use it on production
+          path: /data
+          type: Directory
+    # OR
+    volumes:
+      - name: data-volume
+        awsElasticBlockStore:
+          volumeID: <volume-id>
+          fsType: ext4
+```
+
+## Persistent volumes
+
+Persistent volumes allow to centralize volume in pool of storage
+Pods accessing to persistent volume with `PersistentVolumeClaim`
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-vol1
+spec:
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 1Gi
+  hostPath: # Don't use it in production !
+    path: /tmp/data
+```
+Access modes can be : 
+- `ReadWriteOnce` -- the volume can be mounted as read-write by a single node
+- `ReadOnlyMany` -- the volume can be mounted read-only by many nodes
+- `ReadWriteMany` -- the volume can be mounted as read-write by many nodes
+- `ReadWriteOncePod` -- the volume can be mounted as read-write by a single Pod. This is only supported for CSI volumes and Kubernetes version 1.22+.
+
+
+
+## Persistent Volume Claims
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myclaim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500mi
+```
+
+When pvc is created, kubernetes will look for a `PersistentVolume` whose matching with claim. If none is found, the pvc will remain in a `pending` state. If for instance, there is only the last `PersistentVolume` available in previous chapter, this `PersistentVolume` will be used.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp
+spec:
+  containers:
+    - image: kodekloud/event-simulator
+      name: webapp
+      volumeMounts:
+        - mountPath: /log
+          name: webapp
+  volumes:
+    - name: webapp
+      persistentVolumeClaim:
+        claimName: myclaim
+```
+
+### Reclaim Policy
+When we delete a PVC, the related `PersistentVolume` will have different states depending of the `persistentVolumeReclaimPolicy`. Different values of this policy are :
+
+- `Retain` ( default ) : Volume is not deleted untill administrator delete it manually. It won't be reallocated to another pvc
+- `deleted` Volume is deleted when pvc is deleted
+- `Recycle` data and data volume will be scrapped before making volume available again
+
+More informations : https://kubernetes.io/docs/concepts/storage/persistent-volumes/#claims-as-volumes
+
+## Storage Classes
+
+Storage classes are used to define type of storage in organization.
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: silver
+provisionner: kubernetes.io/gce-pd #Google compute persistent disk
+parameters:
+  type: pd-standard
+  replication-type: none
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gold
+provisionner: kubernetes.io/gce-pd
+parameters:
+  type: pd-ssd
+  replication-type: none
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: platinum
+provisionner: kubernetes.io/gce-pd
+parameters:
+  type: pd-ssd
+  replication-type: regional-pd
+```
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myclaim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: silver
+  resources:
+    requests:
+      storage: 500mi
+```
+
