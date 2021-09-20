@@ -89,6 +89,17 @@
   * [Persistent Volume Claims](#persistent-volume-claims)
     + [Reclaim Policy](#reclaim-policy)
   * [Storage Classes](#storage-classes)
+- [Networking](#networking)
+  * [Pre-req : Network namespace](#pre-req---network-namespace)
+    + [Create a network namespace](#create-a-network-namespace)
+    + [Peering namespaces](#peering-namespaces)
+    + [Virtual switch](#virtual-switch)
+  * [Pre-req : CNI](#pre-req---cni)
+  * [Cluster Networking](#cluster-networking)
+  * [Pod Networking](#pod-networking)
+  * [CNI In kubernetes](#cni-in-kubernetes)
+  * [CNI Weave](#cni-weave)
+    + [Deploy weave on cluster :](#deploy-weave-on-cluster--)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
