@@ -1550,3 +1550,167 @@ spec:
       storage: 500mi
 ```
 
+# Networking
+
+## Pre-req : Network namespace
+
+Docker runs container with multiple namespaces : 
+
+- User namespaces
+- Process namespaces 
+- ...
+- network namespaces
+
+A network namespaces allow to give a network interface to a container with its own routing and arp table.
+
+### Create a network namespace
+`ip netns add red`
+
+List all network namespaces  :
+`ip netns`
+
+To run an `ip` command from a namespace : 
+```bash 
+ip netns exec blue ip link`
+
+# or 
+ip -n red ip link
+
+# Same for arp tables : 
+ip netns exec blue arp`
+
+# Same for route tables : 
+ip netns exec red route
+```
+
+### Peering namespaces
+
+```bash
+# 1: create virtual interfaces :
+ip link add veth-red type veth peer name veth-blue
+
+# 2: attach virtual interfaces to namespaces :
+ip link set veth-red netns red
+ip link set veth-blue netns blue
+
+# 3: set ip address to interfaces 
+ip -n red addr add 192.168.15.1 dev veth-red
+ip -n blue addr add 192.168.15.2 dev veth-blue
+
+# 4: Turn up interfaces
+ip -n red link set veth-red up
+ip -n blue link set veth-blue up
+
+# 5: test connectivity: 
+ip netns exec red ping 192.168.15.2
+```
+### Virtual switch
+In several namespaces we can create virtual switch. There is multiple solutions. By default : Linux bridge. 
+To create virtual switch : 
+
+```bash
+# Create v-switch and set it up
+ip link add v-net-0 type bridge
+ip link set dev v-net-0 up
+```
+Let say there is net namespace called red with its interface veth-red.
+We have to add another interface to connect namespace to switch following this topology:
+```
+[veth-red]------->[veth-red-br]
+```
+where `veth-red-br` will be an interface of the virtual switch
+
+```bash
+ip link add veth-red type veth peer name veth-red-br
+ip link set veth-red netns red
+ip link set veth-red-br master v-net-0
+ip -n red addr add 192.168.15.1 dev veth-red
+```
+
+Let say we want host to connect to virtual switch ( it cannot so far ) :
+```bash
+ip addr add 192.168.15.5/24 dev v-net-0
+
+# Let say host network is 192.168.1.0/24 :
+ip netns exec blue ip route add 192.168.1.0/24 via 192.168.15.5
+
+# Enable nat on gateway :
+iptables -t nat -A POSTROUTING -s 192.168.15.0/24 -j MASQUERADE
+
+# Routing to the internet : 
+ip netns exec blue ip route add default via 192.168.1.5
+
+# Exposing a port of a namespace (192.168.15.2 is the hot ip) :
+iptables -t nat -A PREROUTING -dport 80 --to-destination  192.168.15.2:80 -j DNAT
+```
+
+## Pre-req : CNI
+
+Containerized solutions (Docker, Rocket, Mesos, kube, ... ) requires network namespaces and the usecases are always the same ( create network ns, create bridge, attach them each other, NAT/DNAT Rules, etc.... ). That's why there is set of standard (Container Network Interface) to set program used to manage networks.
+
+CNI define set of responsabilities for container runtime and cni plugins
+
+Runtime is responsible for : 
+- Container runtime must create network namespace
+- identify network the container must attach to
+- container runtime to invoke network plugin when container is added
+- container runtime to invoke network plugin when container is deleted
+- JSON format of the network configuration
+
+Plugin:
+- Must support command line arg ADD/DEL/CHECK
+- Must support parameters container id, network ns, etc..
+- Must manage IP Address Assignment to pods
+- Must return results in a specific format
+
+CNI have a set of supported plugins:
+- BRIDGE
+- VLAN
+- IPVLAN
+- VACVLAN
+- WINDOWS
+and IPAM plugins like 
+- host-local
+- dhcp
+- Weave
+- NSX
+- Cilium
+- Calico
+- Flanel
+
+Docker does'nt implement CNI 
+
+When kube create a container, it start a container with a `none` network and set network configuration at a second time
+
+## Cluster Networking
+
+[**https://kubernetes.io/docs/concepts/cluster-administration/addons/**](https://kubernetes.io/docs/concepts/cluster-administration/addons/)
+
+[**https://kubernetes.io/docs/concepts/cluster-administration/networking/#how-to-implement-the-kubernetes-networking-model**](https://kubernetes.io/docs/concepts/cluster-administration/networking/#how-to-implement-the-kubernetes-networking-model)
+
+[**https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/#steps-for-the-first-control-plane-node**](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/#steps-for-the-first-control-plane-node) 
+
+## Pod Networking
+
+Kubernetes doesn't have a network solution built-in 
+
+Kubelet is responsible to call cni-plugin to manage networks, depending of the `--cni-conf-dir=/etc/cni/net.d`  and `--cni-bin-dir=/etc/cni/bin` arguments
+
+## CNI In kubernetes
+
+cni config directory : `/etc/cni/net.d/`
+
+## CNI Weave
+
+It consists to have an agent ( daemonset ? )responsible for network management.Every agent store topology of network. Weave encapsulate packets comming from a pod, send it to the weave agent where the destination pod is running. Destination agent is decapsulate packet et deliver it to the destination pod
+
+### Deploy weave on cluster : 
+
+`kubectl apply -f "https://clouid.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')" ` 
+
+Troubleshouting : 
+
+`kubectl logs weave-net-xxxxx weave -n kube-system`
+
+
+
