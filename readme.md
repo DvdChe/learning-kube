@@ -1901,7 +1901,7 @@ spec:
           servicePort: 80
     - host: www.site2.com
       http:
-		paths: 
+        paths: 
         backend:
           serviceName: watch-service
           servicePort: 80
