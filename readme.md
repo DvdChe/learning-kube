@@ -1878,7 +1878,7 @@ spec:
         backend:
           serviceName: wear-service
           servicePort: 80
-		paths: /watch
+        paths: /watch
         backend:
           serviceName: watch-service
           servicePort: 80
