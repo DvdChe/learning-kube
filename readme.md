@@ -100,8 +100,15 @@
   * [CNI In kubernetes](#cni-in-kubernetes)
   * [CNI Weave](#cni-weave)
     + [Deploy weave on cluster :](#deploy-weave-on-cluster--)
+  * [Service Networking](#service-networking)
+    + [How services are workings](#how-services-are-workings)
+  * [DNS in Kube](#dns-in-kube)
+  * [CoreDNS in Kube](#coredns-in-kube)
+  * [Ingress](#ingress-1)
+- [Design and install a Kube cluster](#design-and-install-a-kube-cluster)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
+
 
 # Basics
 
@@ -1723,5 +1730,218 @@ Troubleshouting :
 
 `kubectl logs weave-net-xxxxx weave -n kube-system`
 
+## Service Networking
 
+When a service is created, it will be accessible from other pods on the cluster. Service is hosted on the cluster.
 
+- **Cluster IP** are type of service exclusively accessible by pods. ( only accessible within **cluster**)
+
+- **NodePort** is a type of service accessible outside of the cluster.
+
+### How services are workings
+
+Each nodes of cluster runs a kubelet services whichs are watching change of the cluster throught the kube-apiservers. Every time a pod is created, kubelet will invoke cni plugin to configure networking for that pods. Similarly each nodes runs a kube-proxy watches changes through kube-api server. Every time a services is created, kube-proxy gets into action. Unlike pods, services are a cluster wide object.
+
+When a services is created, an ip will be assigned from a predifined range and forwaring rules to the pod IP will be created on each nodes by kube-proxy service
+
+kube-proxy can user multpile tools to push rules :
+
+- `userspaces`
+- `iptables` ( most common and default)
+- `ipvs`
+
+To specify which proxy mode to use :
+
+`kube-proxy --proxy-mode [userspace | iptables | ipvs]`
+
+To specify ckyster ip range :
+
+`kube-api-server --service-cluster-ip-range <ipNet>`
+
+To see services with iptables :
+
+`iptables -L -t nat | grep <service-name>`
+
+it's possible to check logs of kube-proxy
+
+## DNS in Kube
+
+Kubernetes provides a built-in dns service. When a sercice is created, a DNS record is created with the name of the service, pointing to the IP assigned to this service.
+
+In the same namespace, we can just use the name of service to resolve the IP.
+
+From another namespace, it requires to use `<servicename>.<namespace>` record
+All services is grouped in a domaine called `svc` We can reach app with `<servicename>.<namespace>.svc` Finally, we can use the fqdn `<servicename>.<namespace>.svc.cluster.local` 
+
+By default, records are not created for pods but it can be enabled. Fqdn for pods would be : `<x-x-x-x>.<namespace>.pod.cluster.local` ( where `x-x-x-x` is the ip address of the pod with dashes)
+
+## CoreDNS in Kube
+
+koredns is deployed as 2 pods for redondency ( via a deployment ). CoreDNS requires conf file : `/etc/coredns/Corefile`
+
+There is several plugins in this file :
+
+```
+:53 {
+   errors
+   health
+   kubernetes cluster.local in-addr.arpa ip6.arpa {
+     pods insecure # responsible for create pods records
+     upstream
+     fallthrough in-addr.arpa ip6.arpa
+   }
+   prometheus :9153
+   proxy . /etc/resulv.conf
+   cache 30
+   reload
+}
+```
+
+This file is actually pushed by a configmap object 
+
+When a pod is created, Kubelet configure its nameserver to use CoreDNS, as we can see in the kubelet configuration ( `clusterDNS` in kubelet config file) 
+
+in a pod, the `nameserver` is set to the CoreDNS IP in `/etc/resolv.conf` It also has `search default.svc.cluster.local svc.cluster.local cluster.local` set. That's how we dont always need to use fqdn when a pod need to resolve a service name.
+
+## Ingress
+
+There is no ingress controller by default. It is possible to chose between : 
+
+- GCP
+- Nginx
+- Contour
+- HAProxy
+- Traefik
+- istio
+
+Nginx is deployed as any in kube deployment 
+
+```yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: nginx-ingress-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: nginx-ingress
+    template:
+      metadata:
+        labels:
+          name: nginx-ingress
+      spec:
+        containers:
+          - name: nginx-ingress-controller
+            image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.21.0
+        args:
+          - /nginx-ingress-controller
+          #Nginx have several configurations such logs
+          - --configmap=$(POD_NAMESPACE)/nginx-configuration
+```
+
+```yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nginx-configuration
+```
+Nginx have its own requirements to interract with pods and cluster, so it needs a service account : 
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nignx-ingress-service-account
+```
+and of course roles cluster roles and RoleBindings 
+
+```yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-wear
+spec:
+  backend:
+    serviceName: wear-service
+    servicePort: 80
+```
+
+```yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-wear
+spec:
+  rules:
+    - http:
+        paths: /wear
+        backend:
+          serviceName: wear-service
+          servicePort: 80
+		paths: /watch
+        backend:
+          serviceName: watch-service
+          servicePort: 80
+```
+
+Once ingress deployed, a default backend named `default-http-backend:80` so we need to configure this service
+
+```yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-wear
+spec:
+  rules:
+    - host: www.site1.com
+      http:
+        paths:
+        backend:
+          serviceName: wear-service
+          servicePort: 80
+    - host: www.site2.com
+      http:
+		paths: 
+        backend:
+          serviceName: watch-service
+          servicePort: 80
+```
+
+In kube 1.20 : 
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-wear
+spec:
+  rules:
+    - host: www.site1.com
+      http:
+        paths:
+        backend:
+          serviceName: wear-service
+          servicePort: 80
+    - host: www.site2.com
+      http:
+		paths: 
+        backend:
+          service:
+            name: watch-service
+            port: 
+              number: 80
+```
+
+Create ingress imperative way : 
+
+`kubectl create ingress <ingress-name> --rule="host/path=service:port"`
+
+More info  : https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#-em-ingress-em-
+
+https://kubernetes.io/docs/concepts/services-networking/ingress
+
+https://kubernetes.io/docs/concepts/services-networking/ingress/#path-types
+
+# Design and install a Kube cluster
+
+For big production cluster, it is recommanded to split etcd servers with the rest of cluster.
