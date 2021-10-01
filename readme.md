@@ -1945,3 +1945,83 @@ https://kubernetes.io/docs/concepts/services-networking/ingress/#path-types
 # Design and install a Kube cluster
 
 For big production cluster, it is recommanded to split etcd servers with the rest of cluster.
+
+## Choosing Kube infrastructure
+
+Several turnkey solutions : 
+
+- OpenShift
+- Cloud Foundry
+- Vmware cloud pks
+- vagrant ( ?? )
+
+hosted solutions : 
+
+- gke
+- OpenShift Online
+- EKS ( AWS)
+- AKS ( Azure)
+
+## Configure High Availability
+
+It is possible to have several masters in a cluster. Each master nodes are running same services  :
+
+- API server
+- etcd server
+- controller-manager
+- scheduller
+
+In case of multimaster, it is recommanded to loadbalance traffik to services from outside ( w/ `kubectl` )
+
+However, multimasters are running in active/passive mode. We can set a leader election with `kube-controller-manager` args : 
+
+- `--leader-elect true` 
+- `--leader-elect-lease-duration=15s` 
+- `--leader-elect-renew-deadline=10s`
+- `--leader-elect-retry-period=2s`
+
+### ETCD
+
+There is 2 topologies : 
+
+- stacked topology, where ETCD is part of the master nodes.
+  - +: Easy to setup
+  - +: Easy to manage
+  - +: Fewer servers
+  - -: Risk of failures
+- External ETCD topology where ETCD is externalized
+  - Less risks of failures
+  - more difficult to manage
+  - more servers.
+
+The `kube-apiserver` program have the `--etcd-servers=https://etcdserver1:2379,https://etcdserver2:2379` argument where we can set several servers separated by a coma 
+
+## ETCD in HA
+
+it is possible to have multiple ETC servers where each server s are a copy of each others. ETC check every data are equal in the cluster. 
+
+To avoid concurrency, a leader is elected. In case of 2 or more write operation is made, requests are forwarded to leader then he decides which value is applied.
+
+The leader is elected by raft protocol. If there is no "heartbeat" signal, a new elections is made
+
+A write operation is considered to be complete if the majority receive the data ( Quorum = n/2+1 ) that's why it is mandatory to have at least 3 ETC instances
+
+It is recommended to have a odd number of nodes.
+
+## etcdctl
+
+`export ETCDCTL_API=3` ( default is 2)
+
+Put a data: `etcdctl put name toto`
+
+Get a data: `etcdctl get name` 
+
+
+
+Additionnal stuff :
+
+[**https://www.youtube.com/watch?v=uUupRagM7m0&list=PL2We04F3Y_41jYdadX55fdJplDvgNGENo**](https://www.youtube.com/watch?v=uUupRagM7m0&list=PL2We04F3Y_41jYdadX55fdJplDvgNGENo)
+
+[**https://github.com/mmumshad/kubernetes-the-hard-way**](https://github.com/mmumshad/kubernetes-the-hard-way)
+
+# Install Kube w/ kubeadm wa
