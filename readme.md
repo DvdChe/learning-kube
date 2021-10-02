@@ -2024,4 +2024,15 @@ Additionnal stuff :
 
 [**https://github.com/mmumshad/kubernetes-the-hard-way**](https://github.com/mmumshad/kubernetes-the-hard-way)
 
-# Install Kube w/ kubeadm wa
+# Install Kube w/ kubeadm
+
+Each nodes requires to have a container runtime such docker, podman, containerd... 
+
+On the master node :
+
+```
+#: kubeadm init --pod-network-cidr 10.244.0.0/16 --apiserver-advertise-ipaddress=<ip of master node>
+```
+
+
+
