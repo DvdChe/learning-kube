@@ -617,19 +617,53 @@ It is recommanded to update one minor version at time
 
 `kubeadm upgrade plan`  will show current versions, latest version available. **kubeadm will not upgrade kubelet**
 
-1. upgrade kubeadm itself
-2. `kubeadm upgrade apply v1.12.0`
-3. upgrade kubelet version on master node. 
-   1. `apt-get upgrade -y kubelet=1.12.0-00`
-   2. `systemctl restart kubelet`
-4. upgrade kubeadm and kubelet on DRAINED nodes:
-   1. `apt-get upgrade -y kubeadm=1.12.0-00`
-   2. `apt-get upgrade -y kubelet=1.12.0-00`
-   3. `kubeadm upgrade node config --kubelet-version v1.12.0`
-   4. `systemctl restart kubelet`
-   5. uncordon node
+We upgrade controlplane first then nodes.
 
-## Backup and restore 
+
+1. Drain controlplane :
+
+   ```bash
+   kubectl drain controlplane
+   ```
+
+2. upgrade `kubeadm` itself :
+
+   ```bash
+   apt update
+   apt-cache madison kubeadm
+   apt-mark unhold kubeadm
+   apt install kubeadm=x.xx.x-xx
+   apt-mark hold kubeadm
+   ```
+
+   
+
+3. Plan the upgrade : 
+
+   ```bash
+   kubeadm upgrade plan
+   ```
+
+4. Apply the upgrade :
+
+   ```bash
+   kubeadm upgrade apply vx.xx.x
+   ```
+
+5. upgrade kubelet and kubectl version on master node :
+
+   ```bash
+   apt-get install kubelet=x.xx.x-xx kubectl=x.xx.x-xx
+   ```
+6. Uncordon node :
+	```bash
+	kubectl uncordon controlplane
+	```
+
+
+
+Backup and restore 
+
 ### Methods
 
 Backup candidates : 
@@ -648,14 +682,22 @@ Specialized tools: velero
 
 snapshot etcd server :
 
-- `ETCD_API=3 etcdctl snapshot save snapshot.db`
-- `ETCD_API=3 etcdctl status snapshot.db`
+### etcd api version
+
+First of all, export the right apiversion env var to use correctely etcdctl :
+
+```bash
+export ETCDCTL_API=3
+```
+
+- `etcdctl snapshot save snapshot.db`
+- `etcdctl status snapshot.db`
 
 Restore etcd server :
 
 - `systemctl stop kube-apiserver`
 
-- `ETCD_API=3 etcdctl snapshot restore snapshot.db --data-dir /var/lib/etcd/from-backup`It will configure a new cluster and configure member as new member of new cluster. New data directories will be created ( `/var/lib/etcd/from-backup` in this example)
+- `etcdctl snapshot restore snapshot.db --data-dir /var/lib/etcd/from-backup`It will configure a new cluster and configure member as new member of new cluster. New data directories will be created ( `/var/lib/etcd/from-backup` in this example)
 
 - Update etcd.service by updating --data-dir arg with new location ( ``/var/lib/etcd/from-backup` ` )
 
@@ -2034,5 +2076,24 @@ On the master node :
 #: kubeadm init --pod-network-cidr 10.244.0.0/16 --apiserver-advertise-ipaddress=<ip of master node>
 ```
 
+# Advanced kubectl 
 
+## Jsonpath :
 
+`kubectl get nodes -o=jsonpath='{.items[*].metadata.name}{"\n"}{.items[*].status.capacity.cpu}'`
+
+prettier format : 
+
+```
+'{range .items[*]} # Iterate on items[]
+	{.metadata.name}{"\t"}{.status.capacity.cpu}{"\n"}
+{end}'
+```
+
+## Custom column
+
+`kubectl get nodes -o=custom-columns=NODE:.metadata.name,CPU:.status.capacity.cpu`
+
+## sort-by
+
+`kubectl get nodes --sort-by=.metadata.name`
