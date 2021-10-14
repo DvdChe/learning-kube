@@ -375,7 +375,7 @@ In `RollingUpdate` strategy, Kubernetes will create another replicaset and addin
 
 Create a rollout quickly : 
 
-` kubectl set image deployment/<deployment-name> <container_name>=<image>:<tag>`
+` kubectl set image deployment/<deployment-name> <container_name>=<image>:<tag> --record`
 
 ## Application configuration
 
@@ -623,7 +623,7 @@ We upgrade controlplane first then nodes.
 1. Drain controlplane :
 
    ```bash
-   kubectl drain controlplane
+   kubectl drain controlplane --ignore-daemonsets
    ```
 
 2. upgrade `kubeadm` itself :
@@ -631,38 +631,77 @@ We upgrade controlplane first then nodes.
    ```bash
    apt update
    apt-cache madison kubeadm
-   apt-mark unhold kubeadm
-   apt install kubeadm=x.xx.x-xx
-   apt-mark hold kubeadm
+   apt-get update && \
+   apt-get install -y --allow-change-held-packages kubeadm=1.20.x-00
    ```
-
    
 
+   
 3. Plan the upgrade : 
 
    ```bash
+   kubeadm version
    kubeadm upgrade plan
    ```
 
 4. Apply the upgrade :
 
    ```bash
-   kubeadm upgrade apply vx.xx.x
+   kubeadm upgrade apply v1.20.x
    ```
 
 5. upgrade kubelet and kubectl version on master node :
 
    ```bash
-   apt-get install kubelet=x.xx.x-xx kubectl=x.xx.x-xx
+   apt-get update && \
+   	apt-get install -y --allow-change-held-packages kubelet=1.20.x-00 kubectl=1.20.x-00
+   systemctl daemon-reload
+   systemctl restart kubelet
    ```
+   
 6. Uncordon node :
-	```bash
-	kubectl uncordon controlplane
-	```
 
+   ```bash
+   kubectl uncordon controlplane
+   ```
 
+7. Upgrade controlplane is done. now, the node
 
-Backup and restore 
+   ```bash
+   kubectl drain node --ignore-daemonsets
+   ```
+
+8. Upgrade kubeadm
+
+   ```bash
+   apt-get update && \
+   	apt-get install -y --allow-change-held-packages kubeadm=1.20.x-00
+   ```
+
+9. Upgrade node with kubeadm
+
+   ```bash
+   kubeadm upgrade node
+   ```
+
+10. Uprade kubelet and kubectl
+
+    ```bash
+    apt-get update && \
+    	apt-get install -y --allow-change-held-packages kubelet=1.20.x-00 kubectl=1.20.x-00
+    systemctl daemon-reload
+    systemctl restart kubelet
+    ```
+
+11. Uncordon node:
+
+    ```bash
+    kubectl uncordon node
+    ```
+
+    
+
+## Backup and restore 
 
 ### Methods
 
@@ -716,12 +755,10 @@ Quicknote : it's important to specify following parameters when making a snapsho
      --endpoints=https://127.0.0.1:2379 \
      --cacert=/etc/etcd/ca.crt \
      --cert=/etc/etcd/etcd-server.crt \
-     --key=/etc/etcd/etcd-server.key \
+     --key=/etc/etcd/etcd-server.key \  
   ```
 
-  
-
-  ### Resources:
+  ### Resources
 
  - https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/#backing-up-an-etcd-cluster
   
@@ -1244,8 +1281,8 @@ metadata:
   name: my-kubernetes-dashboard
 spec:
   containers:
-    - name: my-kubernetes-dashboard
-      image: my-kubernetes-dashboard
+  - name: my-kubernetes-dashboard
+  	image: my-kubernetes-dashboard
   serviceAccount: my-service-account
   # Optionnaly: 
   automountServiceAccountToken: false 
@@ -1334,16 +1371,16 @@ spec:
   podSelector:
     matchLabels:
       role: db
-    policyTypes:
-      - Ingress
-    ingress:
-      - from:
-        - podSelector:
-          matchLabel:
-            name: api-pod
-        ports:
-          - protocol: TCP
-            port: 3306
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabel:
+          name: api-pod
+    ports:
+    - protocol: TCP
+      port: 3306
 ```
 
 Solutions that support network policies:
@@ -1499,7 +1536,7 @@ Persistent volumes allow to centralize volume in pool of storage
 Pods accessing to persistent volume with `PersistentVolumeClaim`
 
 ```yaml
-apiVersion: v1
+apiVersion: storage.k8s.io/v1
 kind: PersistentVolume
 metadata:
   name: pv-vol1
